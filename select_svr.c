@@ -50,9 +50,9 @@ void *selectWorker(void *args)
     while (1)
     {
         readSet = bundle->set;
-        printf("[%lu] before accept\n", pthread_self());
+        printf("[%lu] before select\n", pthread_self());
         numSelected = select(bundle->maxfd + 1, &readSet, NULL, NULL, NULL);
-        printf("[%lu] after accept, select returned %d\n\n", pthread_self(), numSelected);
+        printf("[%lu] after select, select returned %d\n", pthread_self(), numSelected);
 
         if (FD_ISSET(listenSock, &readSet))
         {
@@ -145,7 +145,7 @@ void handleIncomingData(struct select_worker_args *bundle, fd_set *set, int *num
                     FD_CLR(sock, &bundle->set);
                     close(sock);
                     bundle->clients[i] = -1;
-                    printf("[%lu] closend %d\n", pthread_self(), sock);
+                    printf("[%lu] closed %d\n", pthread_self(), sock);
                 }
             }
         }
