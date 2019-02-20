@@ -54,6 +54,7 @@ int main(int argc, char *argv[])
         perror("Could not bind a socket");
         exit(1);
     }
+    listen(listenSocket, 10);
 
     // pick mode
     switch (mode)
@@ -74,6 +75,9 @@ int main(int argc, char *argv[])
     {
         pthread_join(workers[i], 0);
     }
+
+    // close the listen socket
+    close(listenSocket);
 
     // free worker array
     free(workers);
