@@ -88,8 +88,7 @@ void handleNewConnection(struct select_worker_args *bundle, fd_set *set)
     printf("[%lu] before accept\n", pthread_self());
     if (!acceptNewConnection(listenSock, &newSocket, &newClient))
     {
-        perror("Coud not accept new client");
-        exit(1);
+        return;
     }
     printf("[%lu] after accept, new socket %d\n", pthread_self(), newSocket);
 
