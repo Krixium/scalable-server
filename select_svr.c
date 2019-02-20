@@ -7,27 +7,25 @@
 #include "net.h"
 
 int length;
-int listenSock;
 
 void runSelect(int listenSocket, pthread_t *workers, const int numWorkers, const short port, const int bufferLength)
 {
     struct select_worker_args bundle;
 
-    // save globals
     length = bufferLength;
-    listenSock = listenSocket;
+    bundle.listenSocket = listenSocket;
 
-    if (!setSocketToNonBlock(&listenSock))
+    if (!setSocketToNonBlock(&bundle.listenSocket))
     {
         perror("Could not set socket to non blocking");
         exit(1);
     }
 
     // prepare args
-    bundle.maxfd = listenSocket;
+    bundle.maxfd = bundle.listenSocket;
     bundle.clientSize = -1;
     FD_ZERO(&bundle.set);
-    FD_SET(listenSocket, &bundle.set);
+    FD_SET(bundle.listenSocket, &bundle.set);
     for (int i = 0; i < FD_SETSIZE; i++)
     {
         bundle.clients[i] = -1;
@@ -60,7 +58,7 @@ void *selectWorker(void *args)
         numSelected = select(bundle->maxfd + 1, &readSet, NULL, NULL, NULL);
         printf("[%lu] after select, select returned %d\n", pthread_self(), numSelected);
 
-        if (FD_ISSET(listenSock, &readSet))
+        if (FD_ISSET(bundle->listenSocket, &readSet))
         {
             printf("[%lu] listen socket is set\n", pthread_self());
             handleNewConnection(bundle, &readSet);
@@ -86,7 +84,7 @@ void handleNewConnection(struct select_worker_args *bundle, fd_set *set)
     struct sockaddr_in newClient;
 
     printf("[%lu] before accept\n", pthread_self());
-    if (!acceptNewConnection(listenSock, &newSocket, &newClient))
+    if (!acceptNewConnection(bundle->listenSocket, &newSocket, &newClient))
     {
         return;
     }

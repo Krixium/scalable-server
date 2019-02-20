@@ -6,6 +6,7 @@
 
 struct select_worker_args
 {
+    int listenSocket;
     int maxfd;
     int clientSize;
     int clients[FD_SETSIZE];
