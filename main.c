@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/sysinfo.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "net.h"
 #include "tools.h"
@@ -54,7 +55,7 @@ int main(int argc, char *argv[])
         perror("Could not bind a socket");
         exit(1);
     }
-    listen(listenSocket, 10);
+    listen(listenSocket, 5);
 
     // pick mode
     switch (mode)

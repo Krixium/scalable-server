@@ -71,7 +71,7 @@ int readAllFromSocket(const int sock, char *buffer, const int size)
 
     while (n > 0 && remaining > 0)
     {
-        n = readAllFromSocket(sock, bufferPointer, remaining);
+        n = recv(sock, bufferPointer, remaining, 0);
         bufferPointer += n;
         remaining -= n;
     }
