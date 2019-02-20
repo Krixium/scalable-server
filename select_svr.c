@@ -43,17 +43,20 @@ void *selectWorker(void *args)
 
     if ((buffer = calloc(sizeof(char), length)) == NULL)
     {
-        perror("Could not allocate memory for receive buffer");
+        perror("Coud not allocate memory for receive buffer");
         exit(1);
     }
 
     while (1)
     {
         readSet = bundle->set;
+        printf("[%lu] before accept\n", pthread_self());
         numSelected = select(bundle->maxfd + 1, &readSet, NULL, NULL, NULL);
+        printf("[%lu] after accept, select returned %d\n\n", pthread_self(), numSelected);
 
         if (FD_ISSET(listenSock, &readSet))
         {
+            printf("[%lu] listen socket is set\n", pthread_self());
             handleNewConnection(bundle, &readSet);
 
             if (--numSelected <= 0)
@@ -76,11 +79,13 @@ void handleNewConnection(struct select_worker_args *bundle, fd_set *set)
     int newSocket = -1;
     struct sockaddr_in newClient;
 
+    printf("[%lu] before accept\n", pthread_self());
     if (!acceptNewConnection(listenSock, &newSocket, &newClient))
     {
-        perror("Could not accept new client");
+        perror("Coud not accept new client");
         exit(1);
     }
+    printf("[%lu] after accept, new socket %d\n", pthread_self(), newSocket);
 
     for (i = 0; i < FD_SETSIZE; i++)
     {
@@ -122,10 +127,16 @@ void handleIncomingData(struct select_worker_args *bundle, fd_set *set, int *num
 
         if (FD_ISSET(sock, set))
         {
-            dataRead = readAllFromSocket(sock, buffer, length);
+            printf("[%lu] %d made request\n", pthread_self(), sock);
+           dataRead = readAllFromSocket(sock, buffer, length);
             if (dataRead > 0)
             {
-                sendToSocket(sock, buffer, length);
+                if (sendToSocket(sock, buffer, length) == 0)
+                {
+                    perror("Coud not echo");
+                    exit(1);
+                }
+                printf("[%lu] echoed to %d\n", pthread_self(), sock);
             }
             else
             {
@@ -134,6 +145,7 @@ void handleIncomingData(struct select_worker_args *bundle, fd_set *set, int *num
                     FD_CLR(sock, &bundle->set);
                     close(sock);
                     bundle->clients[i] = -1;
+                    printf("[%lu] closend %d\n", pthread_self(), sock);
                 }
             }
         }
