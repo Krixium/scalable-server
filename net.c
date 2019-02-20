@@ -56,7 +56,7 @@ int createBoundSocket(int *sock, const short port)
     server.sin_port = htons(port);
     server.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if (bind(*sock, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1)
+    if (bind(*sock, (struct sockaddr *)&server, sizeof(server)) == -1)
     {
         return 0;
     }
