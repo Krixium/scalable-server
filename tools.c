@@ -31,10 +31,14 @@ void logAcc(const int sock)
     size_t ms;
     size_t us;
     struct timeval timestamp;
-
+    
+    // try until it works
+    printf("log acc - a\n");
     while (gettimeofday(&timestamp, 0) == -1);
+    printf("log acc - b\n");
     formatTime(&ms, &us, &timestamp);
     while (fprintf(logFile, "%d,%lu.%03lu,new\n", sock, ms, us) <= 0);
+    printf("log acc - c\n");
 }
 
 void logRcv(const int sock, const int amount)
@@ -44,9 +48,12 @@ void logRcv(const int sock, const int amount)
     struct timeval timestamp;
 
     // try until it works
+    printf("log rcv - a\n");
     while (gettimeofday(&timestamp, 0) == -1);
+    printf("log rcv - b\n");
     formatTime(&ms, &us, &timestamp);
     while (fprintf(logFile, "%d,%lu.%03lu,rcv,%d\n", sock, ms, us, amount) <= 0);
+    printf("log rcv - c\n");
 }
 
 void logSnd(const int sock, const int amount)
@@ -56,7 +63,10 @@ void logSnd(const int sock, const int amount)
     struct timeval timestamp;
 
     // try until it works
+    printf("log snd - a\n");
     while (gettimeofday(&timestamp, 0) == -1);
+    printf("log snd - b\n");
     formatTime(&ms, &us, &timestamp);
     while (fprintf(logFile, "%d,%lu.%03lu,snd,%d\n", sock, ms, us, amount) <= 0);
+    printf("log snd - c\n");
 }

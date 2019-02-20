@@ -131,7 +131,7 @@ void handleIncomingData(struct select_worker_args *bundle, fd_set *set, int *num
         if (FD_ISSET(sock, set))
         {
             printf("[%lu] %d made request\n", pthread_self(), sock);
-           dataRead = readAllFromSocket(sock, buffer, length);
+            dataRead = readAllFromSocket(sock, buffer, length);
             if (dataRead > 0)
             {
                 if (sendToSocket(sock, buffer, length) == 0)
