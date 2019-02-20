@@ -26,6 +26,17 @@ void stopLogging()
     fclose(logFile);
 }
 
+void logAcc(const int sock)
+{
+    size_t ms;
+    size_t us;
+    struct timeval timestamp;
+
+    while (gettimeofday(&timestamp, 0) == -1);
+    formatTime(&ms, &us, &timestamp);
+    while (fprintf(logFile, "%d,%lu.%03lu,new\n", sock, ms, us));
+}
+
 void logRcv(const int sock, const int amount)
 {
     size_t ms;

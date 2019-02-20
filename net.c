@@ -59,6 +59,8 @@ int acceptNewConnection(const int listenSocket, int *newSocket, struct sockaddr_
         return 0;
     }
 
+    logAcc(*newSocket);
+
     return 1;
 }
 

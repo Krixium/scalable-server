@@ -9,6 +9,7 @@ void formatTime(size_t *ms, size_t *us, const struct timeval *time);
 int startLogging();
 void stopLogging();
 
+void logAcc(const int sock);
 void logRcv(const int sock, const int amount);
 void logSnd(const int sock, const int amount);
 
