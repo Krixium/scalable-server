@@ -17,6 +17,12 @@ void runSelect(int listenSocket, pthread_t *workers, const int numWorkers, const
     length = bufferLength;
     listenSock = listenSocket;
 
+    if (!setSocketToNonBlock(&listenSock))
+    {
+        perror("Could not set socket to non blocking");
+        exit(1);
+    }
+
     // prepare args
     bundle.maxfd = listenSocket;
     bundle.clientSize = -1;

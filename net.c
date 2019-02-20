@@ -1,5 +1,7 @@
 #include "net.h"
 
+#include <fcntl.h>
+
 #include "tools.h"
 
 // returns 1 on success, 0 otherwise
@@ -8,6 +10,19 @@ int setSocketToReuse(int *sock)
     const int arg = 1;
 
     if (setsockopt(*sock, SOL_SOCKET, SO_REUSEADDR, &arg, sizeof(int)) == -1)
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+// returns 1 on success, 0 otherwise
+int setSocketToNonBlock(int *sock)
+{
+    int flags = fcntl(*sock, F_GETFL, 0);
+
+    if (fcntl(*sock, F_SETFL, flags | O_NONBLOCK) == -1)
     {
         return 0;
     }
