@@ -34,7 +34,7 @@ void logAcc(const int sock)
 
     while (gettimeofday(&timestamp, 0) == -1);
     formatTime(&ms, &us, &timestamp);
-    while (fprintf(logFile, "%d,%lu.%03lu,new\n", sock, ms, us));
+    while (fprintf(logFile, "%d,%lu.%03lu,new\n", sock, ms, us) <= 0);
 }
 
 void logRcv(const int sock, const int amount)
