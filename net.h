@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 
 int setSocketToReuse(int *sock);
+int setSocketToNonBlock(int *sock);
 int createTCPSocket(int *sock);
 int createBoundSocket(int *sock, const short port);
 int acceptNewConnection(const int listenSocket, int *newSocket, struct sockaddr_in *client);

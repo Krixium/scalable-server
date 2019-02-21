@@ -1,11 +1,15 @@
 #ifndef SELECT_SVR_H
 #define SELECT_SVR_H
 
+#define _REENTRANT
+#define DCE_COMPAT
+
 #include <sys/select.h>
 #include <pthread.h>
 
 struct select_worker_args
 {
+    int listenSocket;
     int maxfd;
     int clientSize;
     int clients[FD_SETSIZE];

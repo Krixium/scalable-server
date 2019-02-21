@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
         perror("Could not bind a socket");
         exit(1);
     }
+
     listen(listenSocket, 5);
 
     // pick mode
