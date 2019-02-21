@@ -72,13 +72,10 @@ void *selectWorker(void *args)
     while (1)
     {
         readSet = argPtr->bundle.set;
-        printf("[%lu] before select\n", pthread_self());
         numSelected = select(argPtr->bundle.maxfd + 1, &readSet, NULL, NULL, NULL);
-        printf("[%lu] after select, select returned %d\n", pthread_self(), numSelected);
 
         if (FD_ISSET(argPtr->listenSocket, &readSet))
         {
-            printf("[%lu] listen socket is set\n", pthread_self());
             handleNewConnection(argPtr, &readSet);
 
             if (--numSelected <= 0)
@@ -103,12 +100,10 @@ void handleNewConnection(struct select_worker_arg *args, fd_set *set)
 
     struct select_worker_arg *argPtr = (struct select_worker_arg *)args;
 
-    printf("[%lu] before accept\n", pthread_self());
     if (!acceptNewConnection(argPtr->listenSocket, &newSocket, &newClient))
     {
         return;
     }
-    printf("[%lu] after accept, new socket %d\n", pthread_self(), newSocket);
 
     for (i = 0; i < FD_SETSIZE; i++)
     {
@@ -152,7 +147,6 @@ void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, ch
 
         if (FD_ISSET(sock, set))
         {
-            printf("[%lu] %d made request\n", pthread_self(), sock);
             dataRead = readAllFromSocket(sock, buffer, argPtr->bufferLength);
             if (dataRead > 0)
             {
@@ -161,7 +155,6 @@ void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, ch
                     perror("Coud not echo");
                     exit(1);
                 }
-                printf("[%lu] echoed to %d\n", pthread_self(), sock);
             }
             else
             {
@@ -170,7 +163,6 @@ void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, ch
                     FD_CLR(sock, &argPtr->bundle.set);
                     close(sock);
                     argPtr->bundle.clients[i] = -1;
-                    printf("[%lu] closed %d\n", pthread_self(), sock);
                 }
             }
         }
