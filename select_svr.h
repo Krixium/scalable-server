@@ -7,19 +7,24 @@
 #include <sys/select.h>
 #include <pthread.h>
 
-struct select_worker_args
+struct select_bundle
 {
-    int listenSocket;
     int maxfd;
     int clientSize;
     int clients[FD_SETSIZE];
     fd_set set;
 };
 
-void runSelect(int listenSocket, pthread_t *workers, const int numWorkers, const short port, const int bufferLength);
+struct select_worker_arg
+{
+    int listenSocket;
+    int bufferLength;
+    struct select_bundle bundle;
+};
 
+void runSelect(int listenSocket, pthread_t *workers, const int numWorkers, const short port, const int bufferLength);
 void *selectWorker(void *args);
-void handleNewConnection(struct select_worker_args *bundle, fd_set *set);
-void handleIncomingData(struct select_worker_args *bundle, fd_set *set, int *num, char *buffer);
+void handleNewConnection(struct select_worker_arg *args, fd_set *set);
+void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, char *buffer);
 
 #endif // SELECT_SVR_H
