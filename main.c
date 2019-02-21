@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
 
     // override ^c
     signal(SIGINT, signalHandler);
+	signal(SIGCHLD, SIG_IGN);
 
     // grab arguements
     parseArguments(argc, argv);
