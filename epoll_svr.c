@@ -12,7 +12,25 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static int readAllFromSocket(const int sock, char *buffer, const int size)
+{
+    int n = 1;
+    char *bufferPointer = buffer;
+    int remaining = size;
+
+    while (n > 0 && remaining > 0)
+    {
+        n = recv(sock, bufferPointer, remaining, 0);
+        bufferPointer += n;
+        remaining -= n;
+    }
+
+//    logRcv(sock, size - remaining);
+
+    return size - remaining;
+}
 
 int setNonBlocking(int fd) {
 	return fcntl(fd, F_SETFL, O_NONBLOCK);
@@ -29,6 +47,9 @@ typedef struct {
 
 void* eventLoop(void* args);
 bool clearSocket(int socket, char* buf, const int len);
+
+bool recvAll(int s, char* buf, int* len);
+bool sendAll(int s, char* buf, int* len);
 
 
 void* eventLoop(void* args) {
@@ -69,7 +90,6 @@ void* eventLoop(void* args) {
 
 			// The server is receiving a connection request
 			if (current_event.data.fd == server_fd) {
-				// TODO: Should this block of code be in a loop?
 				while (true) {
 					client_fd = accept(server_fd, (struct sockaddr*) &remote_addr, &addr_len);
 					if (client_fd == -1) {
@@ -103,11 +123,12 @@ void* eventLoop(void* args) {
 			} 
 			if ((current_event.events & EPOLLIN) == EPOLLIN) {
 				printf("Event on socket %d\n", current_event.data.fd);
-				pthread_mutex_lock(&g_mutex);
+//				pthread_mutex_lock(&g_mutex);
 				if (clearSocket(current_event.data.fd, buffer, bufLen)) {
 					printf("Socket %d was cleared\n", current_event.data.fd);
+					//close(current_event.data.fd);
 				}
-				pthread_mutex_unlock(&g_mutex);
+//				pthread_mutex_unlock(&g_mutex);
 			}
 	//		pthread_mutex_lock(ev_args->mutex);
 			//if (!clearSocket(current_event.data.fd, buffer, bufLen)) { // One of the sockets has data to read
@@ -127,30 +148,36 @@ void* eventLoop(void* args) {
 
 bool clearSocket(int socket, char* buf, const int len) {
 	// something is going wrong in this function...
-	int n = 0;
 	int bytesLeft = len;
-	char *bp;
 
-	while (true) {
-		bp = buf;
-		while (n < len) {
-			n = recv(socket, bp, bytesLeft, 0);
-			if (errno == EAGAIN || n == 0) { // need this for edge-triggered mode
-				return false;
-			}
-			bp += n;
-			bytesLeft -= n;
-		}
-		printf("sending: %s\n", buf);
-		n = send(socket, buf, len, 0);
-		if (n == -1) {
-			// client closed the connection
-			return false;
-		}
-		return true;
+	readAllFromSocket(socket, buf, len);
+
+	bytesLeft = len;
+	if (!sendAll(socket, buf, &bytesLeft)) {
+		perror("sendall");
+		fprintf(stderr, "Only %d bytes because of the error\n", bytesLeft);
 	}
-	close(socket);
-	return false;
+	return true;
+	//while (true) {
+	////	bp = buf;
+	//	while (n < len) {
+	//		n = recv(socket, bp, bytesLeft, 0);
+	//		if (errno == EAGAIN || n == 0) { // need this for edge-triggered mode
+	//			return false;
+	//		}
+	//		bp += n;
+	//		bytesLeft -= n;
+	//	}
+	//	printf("sending: %s\n", buf);
+	//	n = send(socket, buf, len, 0);
+	//	if (n == -1) {
+	//		// client closed the connection
+	//		return false;
+	//	}
+	//	return true;
+	//}
+	//close(socket);
+	//return false;
 }
 
 void runEpoll(int listenSocket, pthread_t *workers, const int numWorkers, const short port, const int bufferLength)
@@ -198,8 +225,25 @@ void runEpoll(int listenSocket, pthread_t *workers, const int numWorkers, const 
     }
 }
 
-// placeholder
-void *epollWorker(void *args)
-{
-    return NULL;
+bool sendAll(int s, char* buf, int* len) {
+	int total = 0;
+	int bytesLeft = *len;
+	int n;
+
+	while (total < *len) {
+		n = send(s, buf + total, bytesLeft, 0);
+		if (n == -1) {
+			return false;
+		}
+		total += n;
+		bytesLeft -= n;
+	}
+
+	*len = total;
+
+	return n == -1;
+}
+
+bool recvAll(int s, char* buf, int* len) {
+	return true;
 }
