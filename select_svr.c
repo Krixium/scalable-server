@@ -6,8 +6,6 @@
 
 #include "net.h"
 
-int length;
-
 void runSelect(int listenSocket, pthread_t *workers, const int numWorkers, const short port, const int bufferLength)
 {
     struct select_worker_arg arg;
@@ -44,7 +42,7 @@ void *selectWorker(void *args)
 
     struct select_worker_arg *argPtr = (struct select_worker_arg *)args;
 
-    if ((buffer = calloc(sizeof(char), length)) == NULL)
+    if ((buffer = calloc(sizeof(char), argPtr->bufferLength)) == NULL)
     {
         perror("Coud not allocate memory for receive buffer");
         exit(1);
@@ -135,10 +133,10 @@ void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, ch
         if (FD_ISSET(sock, set))
         {
             printf("[%lu] %d made request\n", pthread_self(), sock);
-            dataRead = readAllFromSocket(sock, buffer, length);
+            dataRead = readAllFromSocket(sock, buffer, argPtr->bufferLength);
             if (dataRead > 0)
             {
-                if (sendToSocket(sock, buffer, length) == 0)
+                if (sendToSocket(sock, buffer, argPtr->bufferLength) == 0)
                 {
                     perror("Coud not echo");
                     exit(1);
