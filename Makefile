@@ -1,31 +1,19 @@
 CC=gcc
-CFLAGS=-Wall -ggdb
+CFLAGS += -Wall -Werror -ggdb
 NAME=server.out
 DEBUGNAME=server.out
 LINKS=-lpthread
 
-OBJ_FILES=main.o select_svr.o epoll_svr.o net.o tools.o
+SRC := main.c select_svr.c epoll_svr.c net.c tools.c
+OBJ := $(SRC:.c=.o)
 
-default: $(OBJ_FILES)
-	$(CC) $(CFLAGS) $(OBJ_FILES) -o $(NAME) $(LINKS)
+.PHONY: default clean
 
-debug: $(OBJ_FILES)
-	$(CC) $(CFLAGS) $(OBJ_FILES) -ggdb -O0 -o $(DEBUGNAME) $(LINKS)
+$(NAME): $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $^ $(LINKS)
 
-main.o:
-	$(CC) $(CFLAGS) -O -c main.c
-
-select_svr.o:
-	$(CC) $(CFLAGS) -O -c select_svr.c
-
-epoll_svr.o:
-	$(CC) $(CFLAGS) -O -c epoll_svr.c
-
-net.o:
-	$(CC) $(CFLAGS) -O -c net.c
-
-tools.o:
-	$(CC) $(CFLAGS) -O -c tools.c
+%.o: %.c
+	$(CC) $(CFLAGS) -o $@ -c $^ 
 
 clean:
 	rm -f *.o *.txt *.log $(NAME) $(DEBUGNAME)
