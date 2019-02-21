@@ -15,21 +15,15 @@
 #include "epoll_svr.h"
 
 #define SELECT_MODE 1
-#define EPOLL_MODE  2
+#define EPOLL_MODE 2
 
 short port;
-int bufferLength;
 int mode;
-
-int workerCount;
-pthread_t *workers;
+int bufferLength;
 
 int main(int argc, char *argv[])
 {
     int listenSocket;
-
-    // override ^c
-    signal(SIGINT, signalHandler);
 
     // grab arguements
     parseArguments(argc, argv);
@@ -38,14 +32,6 @@ int main(int argc, char *argv[])
     if (!startLogging())
     {
         perror("Could not create log file\n");
-        exit(1);
-    }
-
-    // initialize worker array
-    workerCount = get_nprocs();
-    if ((workers = calloc(sizeof(pthread_t), workerCount)) == NULL)
-    {
-        perror("Could not allocate space for threads");
         exit(1);
     }
 
@@ -62,27 +48,18 @@ int main(int argc, char *argv[])
     switch (mode)
     {
     case SELECT_MODE:
-        runSelect(listenSocket, workers, workerCount, port, bufferLength);
+        runSelect(listenSocket, port, bufferLength);
         break;
     case EPOLL_MODE:
-        runEpoll(listenSocket, workers, workerCount, port, bufferLength);
+        runEpoll(listenSocket, port, bufferLength);
         break;
     default:
         printHelp(argv[0]);
         exit(1);
     }
 
-    // wait for workers to finish
-    for (int i = 0; i < workerCount; i++)
-    {
-        pthread_join(workers[i], 0);
-    }
-
     // close the listen socket
     close(listenSocket);
-
-    // free worker array
-    free(workers);
 
     // close logging file
     stopLogging();
@@ -148,13 +125,4 @@ void printHelp(const char *name)
     fprintf(stderr, "    -m - The operatin mode. Either 'select' or 'epoll.'\n");
     fprintf(stderr, "    -p - The port to listen on. Must be greater than 1024.\n");
     fprintf(stderr, "    -b - The buffer size. Recommendation is less than 1000.\n");
-}
-
-void signalHandler(int sig)
-{
-    fprintf(stdout, "Stopping server\n");
-    for (int i = 0; i < workerCount; i++)
-    {
-        pthread_cancel(workers[i]);
-    }
 }

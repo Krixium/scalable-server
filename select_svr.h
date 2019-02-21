@@ -1,11 +1,7 @@
 #ifndef SELECT_SVR_H
 #define SELECT_SVR_H
 
-#define _REENTRANT
-#define DCE_COMPAT
-
 #include <sys/select.h>
-#include <pthread.h>
 
 struct select_bundle
 {
@@ -22,9 +18,13 @@ struct select_worker_arg
     struct select_bundle bundle;
 };
 
-void runSelect(int listenSocket, pthread_t *workers, const int numWorkers, const short port, const int bufferLength);
+void runSelect(const int listenSocket, const short port, const int bufferLength);
+
 void *selectWorker(void *args);
+
 void handleNewConnection(struct select_worker_arg *args, fd_set *set);
 void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, char *buffer);
+
+void selectSignalHandler(int sig);
 
 #endif // SELECT_SVR_H

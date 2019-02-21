@@ -1,24 +1,40 @@
 #include "select_svr.h"
 
+#define _REENTRANT
+#define DCE_COMPAT
+
+#include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/sysinfo.h>
 #include <unistd.h>
 
 #include "net.h"
 
-void runSelect(int listenSocket, pthread_t *workers, const int numWorkers, const short port, const int bufferLength)
+pthread_t *workers;
+
+void runSelect(const int listenSocket, const short port, const int bufferLength)
 {
     struct select_worker_arg arg;
+    arg.listenSocket = listenSocket;
 
-    if (!setSocketToNonBlock(&listenSocket))
+    if (!setSocketToNonBlock(&arg.listenSocket))
     {
         perror("Could not set socket to non blocking");
         exit(1);
     }
 
+    signal(SIGINT, selectSignalHandler);
+
+    if ((workers = calloc(get_nprocs(), sizeof(pthread_t))) == NULL)
+    {
+        perror("Coudl not allocate workers");
+        exit(1);
+    }
+
     // prepare arg
     arg.bufferLength = bufferLength;
-    arg.listenSocket = listenSocket;
     arg.bundle.maxfd = listenSocket;
     arg.bundle.clientSize = -1;
     for (int i = 0; i < FD_SETSIZE; i++)
@@ -28,9 +44,14 @@ void runSelect(int listenSocket, pthread_t *workers, const int numWorkers, const
     FD_ZERO(&arg.bundle.set);
     FD_SET(listenSocket, &arg.bundle.set);
 
-    for (int i = 0; i < numWorkers; i++)
+    for (int i = 0; i < get_nprocs(); i++)
     {
         pthread_create(workers + i, NULL, selectWorker, (void *)&arg);
+    }
+
+    for (int i = 0; i < get_nprocs(); i++)
+    {
+        pthread_join(workers[i], NULL);
     }
 }
 
@@ -115,7 +136,6 @@ void handleNewConnection(struct select_worker_arg *args, fd_set *set)
     }
 }
 
-
 void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, char *buffer)
 {
     int sock = -1;
@@ -159,5 +179,14 @@ void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, ch
         {
             break;
         }
+    }
+}
+
+void selectSignalHandler(int sig)
+{
+    fprintf(stdout, "Stopping server\n");
+    for (int i = 0; i < get_nprocs(); i++)
+    {
+        pthread_cancel(workers[i]);
     }
 }
