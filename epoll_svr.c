@@ -34,82 +34,82 @@ bool sendAll(int s, char* buf, int* len);
 
 static int setNonBlocking(int fd) 
 {
-	return fcntl(fd, F_SETFL, O_NONBLOCK);
+    return fcntl(fd, F_SETFL, O_NONBLOCK);
 }
 
 void* eventLoop(void* args) {
 
-	struct epoll_event current_event, event;
-	int n_ready;
-	int status;
-	struct sockaddr_storage remote_addr;
-	socklen_t addr_len;
-	char* local_buffer;
+    struct epoll_event current_event, event;
+    int n_ready;
+    int status;
+    struct sockaddr_storage remote_addr;
+    socklen_t addr_len;
+    char* local_buffer;
 
-	event_loop_args* ev_args = (event_loop_args*) args;
+    event_loop_args* ev_args = (event_loop_args*) args;
 
-	while (true) {
-		n_ready = epoll_wait(ev_args->epoll_fd, ev_args->events, MAX_EVENTS, -1);
-		if (n_ready == -1) {
-			perror("epoll_wait");
-			exit(EXIT_FAILURE);
-		}
+    while (true) {
+        n_ready = epoll_wait(ev_args->epoll_fd, ev_args->events, MAX_EVENTS, -1);
+        if (n_ready == -1) {
+            perror("epoll_wait");
+            exit(EXIT_FAILURE);
+        }
 
-		// A file descriptor is ready
-		for (int i = 0; i < n_ready; ++i) {
-			int client_fd;
-			current_event = ev_args->events[i];
-			// An error or hangup occurred
-			// Client might have closed their side of the connection
-			if (current_event.events & (EPOLLHUP | EPOLLERR)) {
-				fprintf(stderr, "epoll: EPOLLERR or EPOLLHUP\n");
-				continue;
-			}
+        // A file descriptor is ready
+        for (int i = 0; i < n_ready; ++i) {
+            int client_fd;
+            current_event = ev_args->events[i];
+            // An error or hangup occurred
+            // Client might have closed their side of the connection
+            if (current_event.events & (EPOLLHUP | EPOLLERR)) {
+                fprintf(stderr, "epoll: EPOLLERR or EPOLLHUP\n");
+                continue;
+            }
 
-			// The server is receiving a connection request
-			if (current_event.data.fd == ev_args->server_fd) {
-				while (true) {
-					client_fd = accept(ev_args->server_fd, (struct sockaddr*) &remote_addr, &addr_len);
-					if (client_fd == -1) {
-						if (errno != EAGAIN && errno != EWOULDBLOCK) {
-							perror("accept");
-						}
-						continue;
-					}
-				    char host[NI_MAXHOST], serv[NI_MAXSERV];
-				    status = getnameinfo((struct sockaddr*) &remote_addr, addr_len, host, NI_MAXHOST, serv, NI_MAXSERV, NI_NUMERICHOST | NI_NUMERICSERV);
-				    if (status == -1) {
-					    fprintf(stderr, "getnameinfo: %s\n", gai_strerror(status));
-					    continue;
-				    }
-				    printf("Connection from %s:%s\n", host, serv);
-					// If we get here, then the client_fd is OK
-					break;
-				}
-				setNonBlocking(client_fd);
+            // The server is receiving a connection request
+            if (current_event.data.fd == ev_args->server_fd) {
+                while (true) {
+                    client_fd = accept(ev_args->server_fd, (struct sockaddr*) &remote_addr, &addr_len);
+                    if (client_fd == -1) {
+                        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                            perror("accept");
+                        }
+                        continue;
+                    }
+                    char host[NI_MAXHOST], serv[NI_MAXSERV];
+                    status = getnameinfo((struct sockaddr*) &remote_addr, addr_len, host, NI_MAXHOST, serv, NI_MAXSERV, NI_NUMERICHOST | NI_NUMERICSERV);
+                    if (status == -1) {
+                        fprintf(stderr, "getnameinfo: %s\n", gai_strerror(status));
+                        continue;
+                    }
+                    printf("Connection from %s:%s\n", host, serv);
+                    // If we get here, then the client_fd is OK
+                    break;
+                }
+                setNonBlocking(client_fd);
 
-				// Add the client socket to the epoll instance
-				event.data.fd = client_fd;
-				event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
-				status = epoll_ctl(ev_args->epoll_fd, EPOLL_CTL_ADD, client_fd, &event);
-				if (status == -1) {
-					perror("epoll_ctl");
-					exit(EXIT_FAILURE);
-				}
+                // Add the client socket to the epoll instance
+                event.data.fd = client_fd;
+                event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
+                status = epoll_ctl(ev_args->epoll_fd, EPOLL_CTL_ADD, client_fd, &event);
+                if (status == -1) {
+                    perror("epoll_ctl");
+                    exit(EXIT_FAILURE);
+                }
 
-				continue;
-			}
-			if ((current_event.events & EPOLLIN) == EPOLLIN) {
-				printf("Event on socket %d\n", current_event.data.fd);
-				local_buffer = calloc(ev_args->bufLen, sizeof(char));
-				if (clearSocket(current_event.data.fd, local_buffer, ev_args->bufLen)) {
-					printf("Socket %d was cleared\n", current_event.data.fd);
-					//close(current_event.data.fd);
-					free(local_buffer);
-				}
-			}
-		}
-	}
+                continue;
+            }
+            if ((current_event.events & EPOLLIN) == EPOLLIN) {
+                printf("Event on socket %d\n", current_event.data.fd);
+                local_buffer = calloc(ev_args->bufLen, sizeof(char));
+                if (clearSocket(current_event.data.fd, local_buffer, ev_args->bufLen)) {
+                    printf("Socket %d was cleared\n", current_event.data.fd);
+                    //close(current_event.data.fd);
+                    free(local_buffer);
+                }
+            }
+        }
+    }
 }
 
 bool clearSocket(int socket, char *buf, const int len)
