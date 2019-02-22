@@ -207,6 +207,8 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
 
     //args.mutex = temp;
 
+    workers = calloc(get_nprocs(), sizeof(pthread_t));
+
     // Start the event loop
     for (int i = 0; i < get_nprocs(); i++)
     {
