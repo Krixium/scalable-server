@@ -169,7 +169,7 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
     // Start the event loop
     for (int i = 0; i < get_nprocs(); i++)
     {
-        pthread_create(workers + i, NULL, eventLoop, (void *)&args);
+        pthread_create(workers + i, NULL, eventLoop, (void*) args);
     }
     for (int i = 0; i < get_nprocs(); i++)
     {
