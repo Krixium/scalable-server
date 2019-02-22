@@ -22,24 +22,20 @@
 
 #include "net.h"
 
+// Globals
 static const int MAX_EVENTS = 256;
+pthread_t* workers;
 
-typedef struct {
-	int nClients;
-	int epoll_fd;
-	int server_fd;
-	int bufLen;
-	char* buffer;
-	struct epoll_event* events;
-	pthread_mutex_t* mutex;
-} event_loop_args;
-
-void* eventLoop(void* args);
 bool clearSocket(int socket, char* buf, const int len);
 
 bool recvAll(int s, char* buf, int* len);
 bool sendAll(int s, char* buf, int* len);
 
+
+static int setNonBlocking(int fd) 
+{
+	return fcntl(fd, F_SETFL, O_NONBLOCK);
+}
 
 void* eventLoop(void* args) {
 

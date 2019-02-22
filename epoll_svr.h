@@ -10,6 +10,7 @@ typedef struct
     int server_fd;
     int bufLen;
     char *buffer;
+	struct epoll_event* events;
 } event_loop_args;
 
 void *eventLoop(void *args);
