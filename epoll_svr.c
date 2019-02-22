@@ -1,44 +1,28 @@
 #include "epoll_svr.h"
 
+#define _REENTRANT
+#define DCE_COMPAT
+
+#include <pthread.h>
+#include <signal.h>
+#include <sys/sysinfo.h>
+#include <unistd.h>
+
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
 #include <stdlib.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <errno.h>
 #include <netdb.h>
 #include <fcntl.h>
 #include <unistd.h>
 
+
+#include "net.h"
+
 static const int MAX_EVENTS = 256;
-//static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-static int readAllFromSocket(const int sock, char *buffer, const int size)
-{
-    int n = 1;
-    char *bufferPointer = buffer;
-    int remaining = size;
-
-    while (n > 0 && remaining > 0)
-    {
-        n = recv(sock, bufferPointer, remaining, 0);
-        if (errno == EAGAIN) {
-            break;
-        }
-        bufferPointer += n;
-        remaining -= n;
-    }
-
-//    logRcv(sock, size - remaining);
-
-    return size - remaining;
-}
-
-int setNonBlocking(int fd) {
-	return fcntl(fd, F_SETFL, O_NONBLOCK);
-}
 
 typedef struct {
 	int nClients;
@@ -132,81 +116,76 @@ void* eventLoop(void* args) {
 	}
 }
 
-bool clearSocket(int socket, char* buf, const int len) {
-
+bool clearSocket(int socket, char *buf, const int len)
+{
+    
     int bytesLeft = len;
-	int nRead = readAllFromSocket(socket, buf, len);
-	printf("Read %d bytes from socket %d\n", nRead, socket);
-	printf("Buffer after recv: %s\n", buf);
-	if (!sendAll(socket, buf, &bytesLeft)) {
-		perror("sendall");
-		fprintf(stderr, "Only %d bytes because of the error\n", bytesLeft);
-	}
-	//close(socket);
-	return true;
+
+    readAllFromSocket(socket, buf, len);
+
+    bytesLeft = len;
+    if (!sendToSocket(socket, buf, bytesLeft))
+    {
+        perror("sendall");
+        fprintf(stderr, "Only %d bytes because of the error\n", bytesLeft);
+    }
+    return true;
 }
 
-void runEpoll(int listenSocket, pthread_t *workers, const int numWorkers, const short port, const int bufferLength)
+void runEpoll(int listenSocket, const short port, const int bufferLength)
 {
-	int status;
-	struct epoll_event event;
-	event_loop_args* args = calloc(1, sizeof(event_loop_args));
+    int status;
+    struct epoll_event event;
+    event_loop_args* args = calloc(1, sizeof(event_loop_args));
 
-	args->server_fd = listenSocket;
+    args->server_fd = listenSocket;
 
-	setNonBlocking(args->server_fd);
+    setNonBlocking(args->server_fd);
 
-	args->epoll_fd = epoll_create1(0); // might need flags
-	if (args->epoll_fd == -1) {
-		perror("epoll_create1");
-		return;
-	}
-
-	// Register the server socket for epoll events
-	event.data.fd = args->server_fd;
-	event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
-	status = epoll_ctl(args->epoll_fd, EPOLL_CTL_ADD, args->server_fd, &event);
-	if (status == -1) {
-		perror("epoll_ctl");
-		return;
-	}
-
-
-	args->bufLen = (size_t) bufferLength;
-	args->buffer = calloc(bufferLength, sizeof(char));
-	args->events = calloc(MAX_EVENTS, sizeof(struct epoll_event));
-
-	//pthread_mutex_t* temp = NULL;
-	//pthread_mutex_init(temp, NULL);
-
-	//args.mutex = temp;
-
-	// Start the event loop
-    for (int i = 0; i < numWorkers; i++)
+    args->epoll_fd = epoll_create1(0); // might need flags
+    if (args->epoll_fd == -1) 
     {
-        pthread_create(workers + i, NULL, eventLoop, (void*) args);
+      perror("epoll_create1");
+      return;
+    }
+
+    // Register the server socket for epoll events
+    event.data.fd = args->server_fd;
+    event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
+    status = epoll_ctl(args->epoll_fd, EPOLL_CTL_ADD, args->server_fd, &event);
+    if (status == -1) 
+    {
+      perror("epoll_ctl");
+      return;
+    }
+
+    args->bufLen = (size_t)bufferLength;
+    args->buffer = calloc(bufferLength, sizeof(char));
+    args->events = calloc(MAX_EVENTS, sizeof(struct epoll_event));
+
+    //pthread_mutex_t* temp = NULL;
+    //pthread_mutex_init(temp, NULL);
+
+    //args.mutex = temp;
+
+    workers = calloc(get_nprocs(), sizeof(pthread_t));
+
+    // Start the event loop
+    for (int i = 0; i < get_nprocs(); i++)
+    {
+        pthread_create(workers + i, NULL, eventLoop, (void *)&args);
+    }
+    for (int i = 0; i < get_nprocs(); i++)
+    {
+        pthread_join(workers[i], NULL);
     }
 }
 
-bool sendAll(int s, char* buf, int* len) {
-	int total = 0;
-	int bytesLeft = *len;
-	int n;
-
-	while (total < *len) {
-		n = send(s, buf + total, bytesLeft, 0);
-		if (n == -1) {
-			return false;
-		}
-		total += n;
-		bytesLeft -= n;
-	}
-
-	*len = total;
-
-	return n == -1;
-}
-
-bool recvAll(int s, char* buf, int* len) {
-	return true;
+void epollSignalHandler(int sig)
+{
+    fprintf(stdout, "Stopping server\n");
+    for (int i = 0; i < get_nprocs(); i++)
+    {
+        pthread_cancel(workers[i]);
+    }
 }

@@ -1,39 +1,57 @@
 #include "select_svr.h"
 
+#define _REENTRANT
+#define DCE_COMPAT
+
+#include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/sysinfo.h>
 #include <unistd.h>
 
 #include "net.h"
 
-int length;
+pthread_t *workers;
 
-void runSelect(int listenSocket, pthread_t *workers, const int numWorkers, const short port, const int bufferLength)
+void runSelect(const int listenSocket, const short port, const int bufferLength)
 {
-    struct select_worker_args bundle;
+    struct select_worker_arg arg;
+    arg.listenSocket = listenSocket;
 
-    length = bufferLength;
-    bundle.listenSocket = listenSocket;
-
-    if (!setSocketToNonBlock(&bundle.listenSocket))
+    if (!setSocketToNonBlock(&arg.listenSocket))
     {
         perror("Could not set socket to non blocking");
         exit(1);
     }
 
-    // prepare args
-    bundle.maxfd = bundle.listenSocket;
-    bundle.clientSize = -1;
-    FD_ZERO(&bundle.set);
-    FD_SET(bundle.listenSocket, &bundle.set);
-    for (int i = 0; i < FD_SETSIZE; i++)
+    signal(SIGINT, selectSignalHandler);
+
+    if ((workers = calloc(get_nprocs(), sizeof(pthread_t))) == NULL)
     {
-        bundle.clients[i] = -1;
+        perror("Coudl not allocate workers");
+        exit(1);
     }
 
-    for (int i = 0; i < numWorkers; i++)
+    // prepare arg
+    arg.bufferLength = bufferLength;
+    arg.bundle.maxfd = listenSocket;
+    arg.bundle.clientSize = -1;
+    for (int i = 0; i < FD_SETSIZE; i++)
     {
-        pthread_create(workers + i, NULL, selectWorker, (void *)&bundle);
+        arg.bundle.clients[i] = -1;
+    }
+    FD_ZERO(&arg.bundle.set);
+    FD_SET(listenSocket, &arg.bundle.set);
+
+    for (int i = 0; i < get_nprocs(); i++)
+    {
+        pthread_create(workers + i, NULL, selectWorker, (void *)&arg);
+    }
+
+    for (int i = 0; i < get_nprocs(); i++)
+    {
+        pthread_join(workers[i], NULL);
     }
 }
 
@@ -43,9 +61,9 @@ void *selectWorker(void *args)
     char *buffer;
     fd_set readSet;
 
-    struct select_worker_args *bundle = (struct select_worker_args *)args;
+    struct select_worker_arg *argPtr = (struct select_worker_arg *)args;
 
-    if ((buffer = calloc(sizeof(char), length)) == NULL)
+    if ((buffer = calloc(sizeof(char), argPtr->bufferLength)) == NULL)
     {
         perror("Coud not allocate memory for receive buffer");
         exit(1);
@@ -53,15 +71,12 @@ void *selectWorker(void *args)
 
     while (1)
     {
-        readSet = bundle->set;
-        printf("[%lu] before select\n", pthread_self());
-        numSelected = select(bundle->maxfd + 1, &readSet, NULL, NULL, NULL);
-        printf("[%lu] after select, select returned %d\n", pthread_self(), numSelected);
+        readSet = argPtr->bundle.set;
+        numSelected = select(argPtr->bundle.maxfd + 1, &readSet, NULL, NULL, NULL);
 
-        if (FD_ISSET(bundle->listenSocket, &readSet))
+        if (FD_ISSET(argPtr->listenSocket, &readSet))
         {
-            printf("[%lu] listen socket is set\n", pthread_self());
-            handleNewConnection(bundle, &readSet);
+            handleNewConnection(argPtr, &readSet);
 
             if (--numSelected <= 0)
             {
@@ -69,7 +84,7 @@ void *selectWorker(void *args)
             }
         }
 
-        handleIncomingData(bundle, &readSet, &numSelected, buffer);
+        handleIncomingData(argPtr, &readSet, numSelected, buffer);
     }
 
     free(buffer);
@@ -77,24 +92,24 @@ void *selectWorker(void *args)
     return NULL;
 }
 
-void handleNewConnection(struct select_worker_args *bundle, fd_set *set)
+void handleNewConnection(struct select_worker_arg *args, fd_set *set)
 {
     int i = 0;
     int newSocket = -1;
     struct sockaddr_in newClient;
 
-    printf("[%lu] before accept\n", pthread_self());
-    if (!acceptNewConnection(bundle->listenSocket, &newSocket, &newClient))
+    struct select_worker_arg *argPtr = (struct select_worker_arg *)args;
+
+    if (!acceptNewConnection(argPtr->listenSocket, &newSocket, &newClient))
     {
         return;
     }
-    printf("[%lu] after accept, new socket %d\n", pthread_self(), newSocket);
 
     for (i = 0; i < FD_SETSIZE; i++)
     {
-        if (bundle->clients[i] < 0)
+        if (argPtr->bundle.clients[i] < 0)
         {
-            bundle->clients[i] = newSocket;
+            argPtr->bundle.clients[i] = newSocket;
             break;
         }
     }
@@ -105,57 +120,65 @@ void handleNewConnection(struct select_worker_args *bundle, fd_set *set)
         exit(1);
     }
 
-    FD_SET(newSocket, &bundle->set);
-    if (newSocket > bundle->maxfd)
+    FD_SET(newSocket, &argPtr->bundle.set);
+    if (newSocket > argPtr->bundle.maxfd)
     {
-        bundle->maxfd = newSocket;
+        argPtr->bundle.maxfd = newSocket;
     }
-    if (i > bundle->clientSize)
+    if (i > argPtr->bundle.clientSize)
     {
-        bundle->clientSize = i;
+        argPtr->bundle.clientSize = i;
     }
 }
 
-void handleIncomingData(struct select_worker_args *bundle, fd_set *set, int *num, char *buffer)
+void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, char *buffer)
 {
     int sock = -1;
     int dataRead = -1;
 
-    for (int i = 0; i <= bundle->clientSize; i++)
+    struct select_worker_arg *argPtr = (struct select_worker_arg *)args;
+
+    for (int i = 0; i <= argPtr->bundle.clientSize; i++)
     {
-        if ((sock = bundle->clients[i]) < 0)
+        if ((sock = argPtr->bundle.clients[i]) < 0)
         {
             continue;
         }
 
         if (FD_ISSET(sock, set))
         {
-            printf("[%lu] %d made request\n", pthread_self(), sock);
-            dataRead = readAllFromSocket(sock, buffer, length);
+            dataRead = readAllFromSocket(sock, buffer, argPtr->bufferLength);
             if (dataRead > 0)
             {
-                if (sendToSocket(sock, buffer, length) == 0)
+                if (sendToSocket(sock, buffer, argPtr->bufferLength) == 0)
                 {
                     perror("Coud not echo");
                     exit(1);
                 }
-                printf("[%lu] echoed to %d\n", pthread_self(), sock);
             }
             else
             {
-                if (FD_ISSET(sock, &bundle->set))
+                if (FD_ISSET(sock, &argPtr->bundle.set))
                 {
-                    FD_CLR(sock, &bundle->set);
+                    FD_CLR(sock, &argPtr->bundle.set);
                     close(sock);
-                    bundle->clients[i] = -1;
-                    printf("[%lu] closed %d\n", pthread_self(), sock);
+                    argPtr->bundle.clients[i] = -1;
                 }
             }
         }
 
-        if (--(*num) <= 0)
+        if (--num <= 0)
         {
             break;
         }
+    }
+}
+
+void selectSignalHandler(int sig)
+{
+    fprintf(stdout, "Stopping server\n");
+    for (int i = 0; i < get_nprocs(); i++)
+    {
+        pthread_cancel(workers[i]);
     }
 }
