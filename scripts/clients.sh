@@ -23,7 +23,7 @@ sendNMessages() {
 	local delay=$(($1/10))
 	for i in {1..$1}
 	do
-		sendall "$sendAllArgs $1 $delay"
+		sendall "$sendAllArgs $1 $delay &"
 	done
 }
 
@@ -46,7 +46,7 @@ case $1 in
 	make)
 		sendall "cd $repo && make";;
 	single)
-		sendall "$sendAllArgs";;
+		sendall "$sendAllArgs &";;
 	thou)
 		sendNMessages 100;;
 	10thou)
