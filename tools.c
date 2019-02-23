@@ -16,7 +16,6 @@ int startLogging()
     {
         return 0;
     }
-    
     return 1;
 }
 
@@ -31,7 +30,6 @@ void logAcc(const int sock)
     size_t ms;
     size_t us;
     struct timeval timestamp;
-    
     // try until it works
     while (gettimeofday(&timestamp, 0) == -1);
     formatTime(&ms, &us, &timestamp);

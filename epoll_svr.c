@@ -21,6 +21,7 @@
 
 
 #include "net.h"
+#include "tools.h"
 
 // Globals
 static const int MAX_EVENTS = 256;
@@ -28,11 +29,8 @@ pthread_t* workers;
 
 bool clearSocket(int socket, char* buf, const int len);
 
-bool recvAll(int s, char* buf, int* len);
-bool sendAll(int s, char* buf, int* len);
 
-
-static int setNonBlocking(int fd) 
+static int setNonBlocking(int fd)
 {
     return fcntl(fd, F_SETFL, O_NONBLOCK);
 }
@@ -82,8 +80,8 @@ void* eventLoop(void* args) {
                         fprintf(stderr, "getnameinfo: %s\n", gai_strerror(status));
                         continue;
                     }
-                    printf("Connection from %s:%s\n", host, serv);
                     // If we get here, then the client_fd is OK
+                    logAcc(client_fd);
                     break;
                 }
                 setNonBlocking(client_fd);
@@ -100,11 +98,8 @@ void* eventLoop(void* args) {
                 continue;
             }
             if ((current_event.events & EPOLLIN) == EPOLLIN) {
-                printf("Event on socket %d\n", current_event.data.fd);
                 local_buffer = calloc(ev_args->bufLen, sizeof(char));
                 if (clearSocket(current_event.data.fd, local_buffer, ev_args->bufLen)) {
-                    printf("Socket %d was cleared\n", current_event.data.fd);
-                    //close(current_event.data.fd);
                     free(local_buffer);
                 }
             }
@@ -114,16 +109,11 @@ void* eventLoop(void* args) {
 
 bool clearSocket(int socket, char *buf, const int len)
 {
-    
-    int bytesLeft = len;
-
-    readAllFromSocket(socket, buf, len);
-
-    bytesLeft = len;
-    if (!sendToSocket(socket, buf, bytesLeft))
-    {
-        perror("sendall");
-        fprintf(stderr, "Only %d bytes because of the error\n", bytesLeft);
+    int nRead = readAllFromSocket(socket, buf, len);
+    if (nRead > 0) {
+        sendToSocket(socket, buf, len);
+    } else {
+        close(socket);
     }
     return true;
 }
@@ -134,12 +124,14 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
     struct epoll_event event;
     event_loop_args* args = calloc(1, sizeof(event_loop_args));
 
+    signal(SIGINT, epollSignalHandler);
+
     args->server_fd = listenSocket;
 
     setNonBlocking(args->server_fd);
 
     args->epoll_fd = epoll_create1(0); // might need flags
-    if (args->epoll_fd == -1) 
+    if (args->epoll_fd == -1)
     {
       perror("epoll_create1");
       return;
@@ -149,20 +141,14 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
     event.data.fd = args->server_fd;
     event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
     status = epoll_ctl(args->epoll_fd, EPOLL_CTL_ADD, args->server_fd, &event);
-    if (status == -1) 
+    if (status == -1)
     {
       perror("epoll_ctl");
       return;
     }
 
     args->bufLen = (size_t)bufferLength;
-    args->buffer = calloc(bufferLength, sizeof(char));
     args->events = calloc(MAX_EVENTS, sizeof(struct epoll_event));
-
-    //pthread_mutex_t* temp = NULL;
-    //pthread_mutex_init(temp, NULL);
-
-    //args.mutex = temp;
 
     workers = calloc(get_nprocs(), sizeof(pthread_t));
 
@@ -175,6 +161,9 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
     {
         pthread_join(workers[i], NULL);
     }
+
+    free(args->events);
+    free(args);
 }
 
 void epollSignalHandler(int sig)
