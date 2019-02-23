@@ -100,7 +100,6 @@ void* eventLoop(void* args) {
             if ((current_event.events & EPOLLIN) == EPOLLIN) {
                 local_buffer = calloc(ev_args->bufLen, sizeof(char));
                 if (clearSocket(current_event.data.fd, local_buffer, ev_args->bufLen)) {
-                    //close(current_event.data.fd);
                     free(local_buffer);
                 }
             }
@@ -111,8 +110,10 @@ void* eventLoop(void* args) {
 bool clearSocket(int socket, char *buf, const int len)
 {
     int nRead = readAllFromSocket(socket, buf, len);
-    if (nRead != 0) {
+    if (nRead > 0) {
         sendToSocket(socket, buf, len);
+    } else {
+        close(socket);
     }
     return true;
 }
