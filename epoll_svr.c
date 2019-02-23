@@ -21,6 +21,7 @@
 
 
 #include "net.h"
+#include "tools.h"
 
 // Globals
 static const int MAX_EVENTS = 256;
@@ -80,6 +81,7 @@ void* eventLoop(void* args) {
                         continue;
                     }
                     // If we get here, then the client_fd is OK
+                    logAcc(client_fd);
                     break;
                 }
                 setNonBlocking(client_fd);
@@ -108,15 +110,9 @@ void* eventLoop(void* args) {
 
 bool clearSocket(int socket, char *buf, const int len)
 {
-    int bytesLeft = len;
-
-    readAllFromSocket(socket, buf, len);
-
-    bytesLeft = len;
-    if (!sendToSocket(socket, buf, bytesLeft))
-    {
-        perror("sendall");
-        fprintf(stderr, "Only %d bytes because of the error\n", bytesLeft);
+    int nRead = readAllFromSocket(socket, buf, len);
+    if (nRead != 0) {
+        sendToSocket(socket, buf, len);
     }
     return true;
 }
@@ -126,6 +122,8 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
     int status;
     struct epoll_event event;
     event_loop_args* args = calloc(1, sizeof(event_loop_args));
+
+    signal(SIGINT, epollSignalHandler);
 
     args->server_fd = listenSocket;
 
@@ -149,13 +147,7 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
     }
 
     args->bufLen = (size_t)bufferLength;
-    args->buffer = calloc(bufferLength, sizeof(char));
     args->events = calloc(MAX_EVENTS, sizeof(struct epoll_event));
-
-    //pthread_mutex_t* temp = NULL;
-    //pthread_mutex_init(temp, NULL);
-
-    //args.mutex = temp;
 
     workers = calloc(get_nprocs(), sizeof(pthread_t));
 
@@ -168,6 +160,9 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
     {
         pthread_join(workers[i], NULL);
     }
+
+    free(args->events);
+    free(args);
 }
 
 void epollSignalHandler(int sig)
