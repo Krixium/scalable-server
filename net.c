@@ -1,54 +1,56 @@
 #include "net.h"
 
 #include <fcntl.h>
+#include <strings.h>
+#include <unistd.h>
 
 #include "tools.h"
 
-// returns 1 on success, 0 otherwise
-int setSocketToReuse(int *sock)
+// returns true on success, false otherwise
+bool setSocketToReuse(int sock)
 {
     const int arg = 1;
 
-    if (setsockopt(*sock, SOL_SOCKET, SO_REUSEADDR, &arg, sizeof(int)) == -1)
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &arg, sizeof(int)) == -1)
     {
-        return 0;
+        return false;
     }
 
-    return 1;
+    return true;
 }
 
-// returns 1 on success, 0 otherwise
-int setSocketToNonBlock(int *sock)
+// returns true on success, false otherwise
+bool setSocketToNonBlocking(int sock)
 {
-    int flags = fcntl(*sock, F_GETFL, 0);
+    int flags = fcntl(sock, F_GETFL, 0);
 
-    if (fcntl(*sock, F_SETFL, flags | O_NONBLOCK) == -1)
+    if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) == -1)
     {
-        return 0;
+        return false;
     }
 
-    return 1;
+    return true;
 }
 
-// returns 1 on success, 0 otherwise
-int createTCPSocket(int *sock)
+// returns true on success, false otherwise
+bool createTCPSocket(int *sock)
 {
-    if ((*sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)    
+    if ((*sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
-        return 0;
+        return false;
     }
 
-    return setSocketToReuse(sock);
+    return setSocketToReuse(*sock);
 }
 
-// returns 1 on success, 0 otherwise
-int createBoundSocket(int *sock, const short port)
+// returns true on success, false otherwise
+bool createBoundSocket(int *sock, const short port)
 {
     struct sockaddr_in server;
 
     if (!createTCPSocket(sock))
     {
-        return 0;
+        return false;
     }
 
     bzero(&server, sizeof(struct sockaddr_in));
@@ -58,25 +60,25 @@ int createBoundSocket(int *sock, const short port)
 
     if (bind(*sock, (struct sockaddr *)&server, sizeof(server)) == -1)
     {
-        return 0;
+        return false;
     }
 
-    return 1;
+    return true;
 }
 
-// returns 1 on success, 0 otherwise
-int acceptNewConnection(const int listenSocket, int *newSocket, struct sockaddr_in *client)
+// returns true on success, false otherwise
+bool acceptNewConnection(const int listenSocket, int *newSocket, struct sockaddr_in *client)
 {
     unsigned int length = sizeof(struct sockaddr_in);
     bzero(client, length);
     if ((*newSocket = accept(listenSocket, (struct sockaddr *)client, &length)) == -1)
     {
-        return 0;
+        return false;
     }
 
     logAcc(*newSocket);
 
-    return 1;
+    return true;
 }
 
 // returns the number of bytes read
@@ -106,4 +108,24 @@ int sendToSocket(const int sock, char *buffer, const int size)
     logSnd(sock, n);
 
     return n;
+}
+
+// returns true if socket was cleared, false otherwise and closes the socket
+bool clearSocket(int sock, char *buf, const int len)
+{
+    int nRead = readAllFromSocket(sock, buf, len);
+
+    if (nRead <= 0)
+    {
+        close(sock);
+        return false;
+    }
+
+    if (!sendToSocket(sock, buf, len))
+    {
+        close(sock);
+        return false;
+    }
+
+    return true;
 }

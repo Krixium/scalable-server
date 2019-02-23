@@ -19,7 +19,7 @@ void runSelect(const int listenSocket, const short port, const int bufferLength)
     struct select_worker_arg arg;
     arg.listenSocket = listenSocket;
 
-    if (!setSocketToNonBlock(&arg.listenSocket))
+    if (!setSocketToNonBlocking(arg.listenSocket))
     {
         perror("Could not set socket to non blocking");
         exit(1);
@@ -46,7 +46,11 @@ void runSelect(const int listenSocket, const short port, const int bufferLength)
 
     for (int i = 0; i < get_nprocs(); i++)
     {
-        pthread_create(workers + i, NULL, selectWorker, (void *)&arg);
+        if (pthread_create(workers + i, NULL, selectWorker, (void *)&arg))
+        {
+            perror("Could not create worker thread\n");
+            exit(1);
+        }
     }
 
     for (int i = 0; i < get_nprocs(); i++)
@@ -69,7 +73,7 @@ void *selectWorker(void *args)
         exit(1);
     }
 
-    while (1)
+    while (true)
     {
         readSet = argPtr->bundle.set;
         numSelected = select(argPtr->bundle.maxfd + 1, &readSet, NULL, NULL, NULL);
@@ -134,7 +138,6 @@ void handleNewConnection(struct select_worker_arg *args, fd_set *set)
 void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, char *buffer)
 {
     int sock = -1;
-    int dataRead = -1;
 
     struct select_worker_arg *argPtr = (struct select_worker_arg *)args;
 
@@ -147,23 +150,10 @@ void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, ch
 
         if (FD_ISSET(sock, set))
         {
-            dataRead = readAllFromSocket(sock, buffer, argPtr->bufferLength);
-            if (dataRead > 0)
+            if (!clearSocket(sock, buffer, argPtr->bufferLength))
             {
-                if (sendToSocket(sock, buffer, argPtr->bufferLength) == 0)
-                {
-                    perror("Coud not echo");
-                    exit(1);
-                }
-            }
-            else
-            {
-                if (FD_ISSET(sock, &argPtr->bundle.set))
-                {
-                    FD_CLR(sock, &argPtr->bundle.set);
-                    close(sock);
-                    argPtr->bundle.clients[i] = -1;
-                }
+                FD_CLR(sock, &argPtr->bundle.set);
+                argPtr->bundle.clients[i] = -1;
             }
         }
 

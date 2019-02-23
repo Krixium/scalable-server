@@ -3,22 +3,18 @@
 #define _REENTRANT
 #define DCE_COMPAT
 
+#include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
 #include <pthread.h>
 #include <signal.h>
-#include <sys/sysinfo.h>
-#include <unistd.h>
-
-#include <sys/epoll.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-
-#include <stdlib.h>
 #include <stdio.h>
-#include <errno.h>
-#include <netdb.h>
-#include <fcntl.h>
+#include <stdlib.h>
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <sys/sysinfo.h>
+#include <sys/types.h>
 #include <unistd.h>
-
 
 #include "net.h"
 #include "tools.h"
@@ -26,14 +22,6 @@
 // Globals
 static const int MAX_EVENTS = 256;
 pthread_t* workers;
-
-bool clearSocket(int socket, char* buf, const int len);
-
-
-static int setNonBlocking(int fd)
-{
-    return fcntl(fd, F_SETFL, O_NONBLOCK);
-}
 
 void* eventLoop(void* args) {
 
@@ -84,7 +72,7 @@ void* eventLoop(void* args) {
                     logAcc(client_fd);
                     break;
                 }
-                setNonBlocking(client_fd);
+                setSocketToNonBlocking(client_fd);
 
                 // Add the client socket to the epoll instance
                 event.data.fd = client_fd;
@@ -107,17 +95,6 @@ void* eventLoop(void* args) {
     }
 }
 
-bool clearSocket(int socket, char *buf, const int len)
-{
-    int nRead = readAllFromSocket(socket, buf, len);
-    if (nRead > 0) {
-        sendToSocket(socket, buf, len);
-    } else {
-        close(socket);
-    }
-    return true;
-}
-
 void runEpoll(int listenSocket, const short port, const int bufferLength)
 {
     int status;
@@ -128,7 +105,7 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
 
     args->server_fd = listenSocket;
 
-    setNonBlocking(args->server_fd);
+    setSocketToNonBlocking(args->server_fd);
 
     args->epoll_fd = epoll_create1(0); // might need flags
     if (args->epoll_fd == -1)

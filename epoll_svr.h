@@ -1,8 +1,6 @@
 #ifndef EPOLL_SVR_H
 #define EPOLL_SVR_H
 
-#include <stdbool.h>
-
 typedef struct
 {
     int nClients;
@@ -13,7 +11,6 @@ typedef struct
 } event_loop_args;
 
 void *eventLoop(void *args);
-bool clearSocket(int socket, char *buf, const int len);
 void runEpoll(int listenSocket, const short port, const int bufferLength);
 void epollSignalHandler(int sig);
 
