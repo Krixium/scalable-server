@@ -10,6 +10,7 @@
 #include <sys/sysinfo.h>
 #include <unistd.h>
 
+#include "tools.h"
 #include "net.h"
 
 pthread_t *workers;
@@ -21,16 +22,14 @@ void runSelect(const int listenSocket, const short port, const int bufferLength)
 
     if (!setSocketToNonBlocking(arg.listenSocket))
     {
-        perror("Could not set socket to non blocking");
-        exit(1);
+        systemFatal("setSocketToNonBlocking");
     }
 
     signal(SIGINT, selectSignalHandler);
 
     if ((workers = calloc(get_nprocs(), sizeof(pthread_t))) == NULL)
     {
-        perror("Coudl not allocate workers");
-        exit(1);
+        systemFatal("calloc");
     }
 
     // prepare arg
@@ -48,8 +47,7 @@ void runSelect(const int listenSocket, const short port, const int bufferLength)
     {
         if (pthread_create(workers + i, NULL, selectWorker, (void *)&arg))
         {
-            perror("Could not create worker thread\n");
-            exit(1);
+            systemFatal("pthread_create");
         }
     }
 
@@ -69,8 +67,7 @@ void *selectWorker(void *args)
 
     if ((buffer = calloc(sizeof(char), argPtr->bufferLength)) == NULL)
     {
-        perror("Coud not allocate memory for receive buffer");
-        exit(1);
+        systemFatal("calloc");
     }
 
     while (true)
@@ -120,8 +117,7 @@ void handleNewConnection(struct select_worker_arg *args, fd_set *set)
 
     if (i == FD_SETSIZE)
     {
-        perror("Too many clients");
-        exit(1);
+        systemFatal("Too many clients");
     }
 
     FD_SET(newSocket, &argPtr->bundle.set);

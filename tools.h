@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <sys/time.h>
 
+void systemFatal(const char *message);
+
 void formatTime(size_t *ms, size_t *us, const struct timeval *time);
 
 int startLogging();

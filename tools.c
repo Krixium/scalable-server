@@ -1,6 +1,17 @@
 #include "tools.h"
 
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 FILE *logFile = NULL;
+pthread_mutex_t lock;
+
+void systemFatal(const char *message)
+{
+    perror(message);
+    exit(EXIT_FAILURE);
+}
 
 void formatTime(size_t *ms, size_t *us, const struct timeval *time)
 {
@@ -11,7 +22,10 @@ void formatTime(size_t *ms, size_t *us, const struct timeval *time)
 // return 1 if file was openned, 0 otherwise
 int startLogging()
 {
+    pthread_mutex_lock(&lock);
     logFile = fopen("server.log", "wb+");
+    pthread_mutex_unlock(&lock);
+
     if (logFile == NULL)
     {
         return 0;
@@ -21,8 +35,10 @@ int startLogging()
 
 void stopLogging()
 {
+    pthread_mutex_lock(&lock);
     fflush(logFile);
     fclose(logFile);
+    pthread_mutex_unlock(&lock);
 }
 
 void logAcc(const int sock)
@@ -33,7 +49,9 @@ void logAcc(const int sock)
     // try until it works
     while (gettimeofday(&timestamp, 0) == -1);
     formatTime(&ms, &us, &timestamp);
+    pthread_mutex_lock(&lock);
     while (fprintf(logFile, "%d,%lu.%03lu,new\n", sock, ms, us) <= 0);
+    pthread_mutex_unlock(&lock);
 }
 
 void logRcv(const int sock, const int amount)
@@ -45,7 +63,9 @@ void logRcv(const int sock, const int amount)
     // try until it works
     while (gettimeofday(&timestamp, 0) == -1);
     formatTime(&ms, &us, &timestamp);
+    pthread_mutex_lock(&lock);
     while (fprintf(logFile, "%d,%lu.%03lu,rcv,%d\n", sock, ms, us, amount) <= 0);
+    pthread_mutex_unlock(&lock);
 }
 
 void logSnd(const int sock, const int amount)
@@ -57,5 +77,7 @@ void logSnd(const int sock, const int amount)
     // try until it works
     while (gettimeofday(&timestamp, 0) == -1);
     formatTime(&ms, &us, &timestamp);
+    pthread_mutex_lock(&lock);
     while (fprintf(logFile, "%d,%lu.%03lu,snd,%d\n", sock, ms, us, amount) <= 0);
+    pthread_mutex_unlock(&lock);
 }

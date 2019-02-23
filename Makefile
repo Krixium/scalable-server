@@ -28,3 +28,8 @@ debug: $(OBJ)
 
 clean:
 	rm -f *.o *.txt *.log $(NAME) $(DEBUGNAME)
+
+count:
+	grep new server.log | wc -l
+	grep rcv server.log | wc -l
+	grep snd server.log | wc -l

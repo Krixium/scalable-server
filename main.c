@@ -31,15 +31,13 @@ int main(int argc, char *argv[])
     // open logging file
     if (!startLogging())
     {
-        perror("Could not create log file\n");
-        exit(1);
+        systemFatal("startLogging");
     }
 
     // create listening socket
     if (!createBoundSocket(&listenSocket, port))
     {
-        perror("Could not bind a socket");
-        exit(1);
+        systemFatal("createBoundSocket");
     }
 
     listen(listenSocket, 5);
@@ -55,7 +53,7 @@ int main(int argc, char *argv[])
         break;
     default:
         printHelp(argv[0]);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     // close the listen socket
@@ -99,7 +97,7 @@ void parseArguments(int argc, char *argv[])
             if (port < 1024)
             {
                 fprintf(stderr, "Port must be higher than 1024\n");
-                exit(1);
+                exit(EXIT_FAILURE);
             }
             break;
         case 'b':
@@ -107,7 +105,7 @@ void parseArguments(int argc, char *argv[])
             break;
         default:
             printHelp(argv[0]);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -115,7 +113,7 @@ void parseArguments(int argc, char *argv[])
     if (!mode || !port || !bufferLength)
     {
         printHelp(argv[0]);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 }
 
