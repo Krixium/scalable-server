@@ -19,8 +19,10 @@
 #include "tools.h"
 #include "net.h"
 
+
 // Globals
 static const int MAX_EVENTS = 256;
+static const int EPOLL_FLAGS = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
 pthread_t *workers;
 
 void *eventLoop(void *args)
@@ -75,7 +77,7 @@ void *eventLoop(void *args)
 
                 // Add the client socket to the epoll instance
                 event.data.fd = client_fd;
-                event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
+                event.events = EPOLL_FLAGS;
                 status = epoll_ctl(ev_args->epoll_fd, EPOLL_CTL_ADD, client_fd, &event);
                 if (status == -1)
                 {
@@ -118,7 +120,7 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
 
     // Register the server socket for epoll events
     event.data.fd = args->server_fd;
-    event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
+    event.events = EPOLL_FLAGS;
     status = epoll_ctl(args->epoll_fd, EPOLL_CTL_ADD, args->server_fd, &event);
     if (status == -1)
     {
