@@ -9,7 +9,7 @@ typedef struct
 } event_loop_args;
 
 void *eventLoop(void *args);
-void runEpoll(int listenSocket, const short port, const int bufferLength);
+void runEpoll(int listenSocket, const int bufferLength);
 void epollSignalHandler(int sig);
 
 #endif // EPOLL_SVR_H

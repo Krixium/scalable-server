@@ -18,11 +18,11 @@ struct select_worker_arg
     struct select_bundle bundle;
 };
 
-void runSelect(const int listenSocket, const short port, const int bufferLength);
+void runSelect(const int listenSocket, const int bufferLength);
 
 void *selectWorker(void *args);
 
-void handleNewConnection(struct select_worker_arg *args, fd_set *set);
+void handleNewConnection(struct select_worker_arg *args);
 void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, char *buffer);
 
 void selectSignalHandler(int sig);

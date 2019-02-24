@@ -1,7 +1,28 @@
-#include "epoll_svr.h"
-
+/*---------------------------------------------------------------------------------------
+-- SOURCE FILE:            epoll_svr.c
+--
+-- PROGRAM:                server.out
+--
+-- FUNCTIONS:
+--                         void *eventLoop(void *args)
+--                         void runEpoll(int listenSocket, const int bufferLength)
+--                         void epollSignalHandler(int sig)
+--
+-- DATE:                   Feb 19, 2019
+--
+-- REVISIONS:              N/A
+--
+-- DESIGNERS:              Benny Wang, William Murpy
+--
+-- PROGRAMMERS:            William Murphy
+--
+-- NOTES:
+-- Contains all functions for running the server in epoll mode.
+---------------------------------------------------------------------------------------*/
 #define _REENTRANT
 #define DCE_COMPAT
+
+#include "epoll_svr.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -26,6 +47,25 @@ static const int EPOLL_FLAGS = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
 
 pthread_t *workers;
 
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                eventLoop
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                William Murphy
+--
+-- PROGRAMMER:              William Murphy
+--
+-- INTERFACE:               void *eventLoop(void *args)
+--
+-- RETURNS:                 NULL - unused.
+--
+-- NOTES:
+-- The main function of each worker thread for epoll. Allocates a buffer for storing data and then
+-- goes into a forever loop that blocks on epoll_wait and then handles requests accordingly.
+--------------------------------------------------------------------------------------------------*/
 void *eventLoop(void *args)
 {
     struct epoll_event current_event, event;
@@ -130,7 +170,24 @@ void *eventLoop(void *args)
     close(epoll_fd);
 }
 
-void runEpoll(int listenSocket, const short port, const int bufferLength)
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                runEpoll
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                William Murphy
+--
+-- PROGRAMMER:              William Murphy
+--
+-- INTERFACE:               void runEpoll(int listenSocket, const int bufferLength)
+--
+-- NOTES:
+-- The main entry point for epoll mode. Prepares the arguments for epoll and then spawns one worker
+-- thread per cpu and waits for all workers to exit.
+--------------------------------------------------------------------------------------------------*/
+void runEpoll(int listenSocket, const int bufferLength)
 {
     event_loop_args *args = calloc(1, sizeof(event_loop_args));
 
@@ -165,6 +222,23 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
     free(args);
 }
 
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                epollSignalHandler
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                William Murphy
+--
+-- PROGRAMMER:              William Murphy
+--
+-- INTERFACE:               void epollSignalHandler(int sig)
+--                              int sig: The signal that was caught.
+--
+-- NOTES:
+-- Callback function to catch SIGINT. Kills all the worker threads.
+--------------------------------------------------------------------------------------------------*/
 void epollSignalHandler(int sig)
 {
     fprintf(stdout, "Stopping server\n");
