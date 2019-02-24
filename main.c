@@ -1,3 +1,27 @@
+/*---------------------------------------------------------------------------------------
+-- SOURCE FILE:            main.c
+--
+-- PROGRAM:                server.out
+--
+-- FUNCTIONS:
+--                         parseArguments(int argc, char *argv[])
+--                         printHelp(const char *name)
+--                         signalHandler(int sig)
+--
+-- DATE:                   Feb 19, 2019
+--
+-- REVISIONS:              N/A
+--
+-- DESIGNERS:              Benny Wang, William Murphy
+--
+-- PROGRAMMERS:            Benny Wang
+--
+-- NOTES:
+-- The main entry point the program. Parses the command line arguments and then if all
+-- the argements are okay, starts the server in either epoll or select mode.
+-- 
+-- For usage see the printHelp() function or README.md file.
+---------------------------------------------------------------------------------------*/
 #include "main.h"
 
 #include <getopt.h>
@@ -21,6 +45,26 @@ short port;
 int mode;
 int bufferLength;
 
+/*---------------------------------------------------------------------------------------
+-- FUNCTION:                main
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                Benny Wang
+--
+-- PROGRAMMER:              Benny Wang
+--
+-- INTERFACE:               int main(int argc, char *argv[])
+--                              int argc: The number of command line arguments.
+--                              char *argv[]: The command line arguments.
+--
+-- RETURNS:                 The exit code of the program.
+--
+-- NOTES:
+-- The main entry point of the program.
+---------------------------------------------------------------------------------------*/
 int main(int argc, char *argv[])
 {
     int listenSocket;
@@ -46,10 +90,10 @@ int main(int argc, char *argv[])
     switch (mode)
     {
     case SELECT_MODE:
-        runSelect(listenSocket, port, bufferLength);
+        runSelect(listenSocket, bufferLength);
         break;
     case EPOLL_MODE:
-        runEpoll(listenSocket, port, bufferLength);
+        runEpoll(listenSocket, bufferLength);
         break;
     default:
         printHelp(argv[0]);
@@ -65,6 +109,24 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                parseArguments
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                Benny Wang
+--
+-- PROGRAMMER:              Benny Wang
+--
+-- INTERFACE:               void parseArguments(int argc, char *argv[])
+--                              int argc: Argc from main.
+--                              char *argv[]: Argv from main.
+--
+-- NOTES:
+-- Parses the command line arguments and configures the approriate settings.
+--------------------------------------------------------------------------------------------------*/
 void parseArguments(int argc, char *argv[])
 {
     int c;
@@ -117,6 +179,23 @@ void parseArguments(int argc, char *argv[])
     }
 }
 
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                printHelp
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                Benny Wang
+--
+-- PROGRAMMER:              Benny Wang
+--
+-- INTERFACE:               void printHelp(const char *name)
+--                              name: The name of the application.
+--
+-- NOTES:
+-- Prints the help menu with instructions on how to run the program.
+--------------------------------------------------------------------------------------------------*/
 void printHelp(const char *name)
 {
     fprintf(stderr, "Usage: %s -m [select|epoll] -p [port] -b [buffer size]\n", name);

@@ -1,14 +1,15 @@
 #ifndef TOOLS_H
 #define TOOLS_H
 
-#include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include <sys/time.h>
 
 void systemFatal(const char *message);
 
 void formatTime(size_t *ms, size_t *us, const struct timeval *time);
 
-int startLogging();
+bool startLogging();
 void stopLogging();
 
 void logAcc(const int sock);

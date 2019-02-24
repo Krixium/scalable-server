@@ -1,7 +1,30 @@
-#include "select_svr.h"
-
+/*---------------------------------------------------------------------------------------
+-- SOURCE FILE:            select_svr.c
+--
+-- PROGRAM:                server.out
+--
+-- FUNCTIONS:
+--                         void runSelect(const int listenSocket, const int bufferLength)
+--                         void *selectWorker(void *args)
+--                         void handleNewConnection(struct select_worker_arg *args)
+--                         void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, char *buffer)
+--                         void selectSignalHandler(int sig)
+--
+-- DATE:                   Feb 19, 2019
+--
+-- REVISIONS:              N/A
+--
+-- DESIGNERS:              Benny Wang, William Murpy
+--
+-- PROGRAMMERS:            Benny Wang
+--
+-- NOTES:
+-- Contains all functions used for running the server in select mode.
+---------------------------------------------------------------------------------------*/
 #define _REENTRANT
 #define DCE_COMPAT
+
+#include "select_svr.h"
 
 #include <pthread.h>
 #include <signal.h>
@@ -15,7 +38,26 @@
 
 pthread_t *workers;
 
-void runSelect(const int listenSocket, const short port, const int bufferLength)
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                runSelect
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                Benny Wang
+--
+-- PROGRAMMER:              Benny Wang
+--
+-- INTERFACE:               void runSelect(const int listenSocket, const int bufferLength)
+--                              const int listenSocket: The listening socket.
+--                              const int bufferLength: The size of the buffer.
+--
+-- NOTES:
+-- The main entry point for select mode. Prepares the arguments for select and then spawns one worker
+-- thread per cpu and waits for all workers to exit.
+--------------------------------------------------------------------------------------------------*/
+void runSelect(const int listenSocket, const int bufferLength)
 {
     struct select_worker_arg arg;
     arg.listenSocket = listenSocket;
@@ -57,6 +99,26 @@ void runSelect(const int listenSocket, const short port, const int bufferLength)
     }
 }
 
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                selectWorker
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                Benny Wang
+--
+-- PROGRAMMER:              Benny Wang
+--
+-- INTERFACE:               void *selectWorker(void *args)
+--                              void *args: A select_workera_arg struct.
+--
+-- RETURNS:                 NULL - unused.
+--
+-- NOTES:
+-- The main function of each worker thread for select. Allocates a buffer for storing data and then
+-- goes into a forever loop that blocks on select and then handles requests accordingly.
+--------------------------------------------------------------------------------------------------*/
 void *selectWorker(void *args)
 {
     int numSelected;
@@ -77,7 +139,7 @@ void *selectWorker(void *args)
 
         if (FD_ISSET(argPtr->listenSocket, &readSet))
         {
-            handleNewConnection(argPtr, &readSet);
+            handleNewConnection(argPtr);
 
             if (--numSelected <= 0)
             {
@@ -93,7 +155,24 @@ void *selectWorker(void *args)
     return NULL;
 }
 
-void handleNewConnection(struct select_worker_arg *args, fd_set *set)
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                handleNewConnection
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                Benny Wang
+--
+-- PROGRAMMER:              Benny Wang
+--
+-- INTERFACE:               void handleNewConnection(struct select_worker_arg *args)
+--                              struct select_worker_arg *args: The worker arguments.
+--
+-- NOTES:
+-- Accepts a new connection and set the associated select parameters.
+--------------------------------------------------------------------------------------------------*/
+void handleNewConnection(struct select_worker_arg *args)
 {
     int i = 0;
     int newSocket = -1;
@@ -131,6 +210,26 @@ void handleNewConnection(struct select_worker_arg *args, fd_set *set)
     }
 }
 
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                handleIncomingData
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                Benny Wang
+--
+-- PROGRAMMER:              Benny Wang
+--
+-- INTERFACE:               void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, char *buffer)
+--                              struct select_worker_arg *args: The worker arguments.
+--                              fd_set *set: The current set.
+--                              int num: The number of set bits in set.
+--                              char *buffer: The buffer to store the data.
+--
+-- NOTES:
+-- Handles all the data sockets that were flagged by the select call.
+--------------------------------------------------------------------------------------------------*/
 void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, char *buffer)
 {
     int sock = -1;
@@ -160,6 +259,23 @@ void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, ch
     }
 }
 
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                selectSignalHandler
+--
+-- DATE:                    Feb 19, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                Benny Wang
+--
+-- PROGRAMMER:              Benny Wang
+--
+-- INTERFACE:               void selectSignalHandler(int sig)
+--                             int sig: The signal that was caught.
+--
+-- NOTES:
+-- Callback function to catch SIGINT. Kills all the worker threads.
+--------------------------------------------------------------------------------------------------*/
 void selectSignalHandler(int sig)
 {
     fprintf(stdout, "Stopping server\n");
