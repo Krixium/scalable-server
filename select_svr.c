@@ -117,7 +117,9 @@ void handleNewConnection(struct select_worker_arg *args, fd_set *set)
 
     if (i == FD_SETSIZE)
     {
-        systemFatal("Too many clients");
+        fprintf(stderr, "Too many clients, cannot accept\n");
+        close(newSocket);
+        return;
     }
 
     FD_SET(newSocket, &argPtr->bundle.set);
