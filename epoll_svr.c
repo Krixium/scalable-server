@@ -19,8 +19,11 @@
 #include "tools.h"
 #include "net.h"
 
+
 // Globals
 static const int MAX_EVENTS = 256;
+static const int EPOLL_FLAGS = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
+
 pthread_t *workers;
 
 void *eventLoop(void *args)
@@ -30,8 +33,25 @@ void *eventLoop(void *args)
     int status;
     struct sockaddr_in remote_addr;
     char *local_buffer;
+    int epoll_fd;
+    struct epoll_event events[MAX_EVENTS];
 
     event_loop_args *ev_args = (event_loop_args *)args;
+
+    epoll_fd = epoll_create1(0);
+    if (epoll_fd == -1)
+    {
+        systemFatal("epoll_create1");
+    }
+
+    // Register the server socket for epoll events
+    event.data.fd = ev_args->server_fd;
+    event.events = EPOLLIN | EPOLLET;
+    status = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ev_args->server_fd, &event);
+    if (status == -1)
+    {
+        systemFatal("epoll_ctl");
+    }
 
     if ((local_buffer = calloc(ev_args->bufLen, sizeof(char))) == NULL)
     {
@@ -40,7 +60,7 @@ void *eventLoop(void *args)
 
     while (true)
     {
-        n_ready = epoll_wait(ev_args->epoll_fd, ev_args->events, MAX_EVENTS, -1);
+        n_ready = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
         if (n_ready == -1)
         {
             systemFatal("epoll_wait");
@@ -50,7 +70,8 @@ void *eventLoop(void *args)
         for (int i = 0; i < n_ready; ++i)
         {
             int client_fd;
-            current_event = ev_args->events[i];
+            socklen_t remote_len;
+            current_event = events[i];
             // An error or hangup occurred
             // Client might have closed their side of the connection
             if (current_event.events & (EPOLLHUP | EPOLLERR))
@@ -63,29 +84,39 @@ void *eventLoop(void *args)
             // The server is receiving a connection request
             if (current_event.data.fd == ev_args->server_fd)
             {
-                if (!acceptNewConnection(ev_args->server_fd, &client_fd, &remote_addr))
-                {
-                    continue;
+                client_fd = accept(ev_args->server_fd, (struct sockaddr*) &remote_addr, &remote_len);
+                if (client_fd == -1) {
+                    if (errno != EAGAIN)
+                    {
+                        perror("accept");
+                    }
+                    break;
                 }
+                logAcc(client_fd);
 
-                if (!setSocketToNonBlocking(client_fd))
+                status = fcntl(client_fd, F_SETFL, fcntl(client_fd, F_GETFL) | O_NONBLOCK);
+                if (status == -1)
                 {
-                    systemFatal("setSocketToNonBlocking");
+                    perror("fcntl");
+                    close(client_fd);
+                    continue;
                 }
 
                 // Add the client socket to the epoll instance
                 event.data.fd = client_fd;
-                event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
-                status = epoll_ctl(ev_args->epoll_fd, EPOLL_CTL_ADD, client_fd, &event);
+                event.events = EPOLL_FLAGS;
+                status = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &event);
                 if (status == -1)
                 {
+                    close(client_fd);
+                    if (errno == EBADF) // this is a hack
+                    {
+                        continue;
+                    }
                     systemFatal("epoll_ctl");
                 }
-
-                continue;
             }
-
-            if (current_event.events & EPOLLIN)
+            else
             {
                 if (!clearSocket(current_event.data.fd, local_buffer, ev_args->bufLen))
                 {
@@ -96,12 +127,11 @@ void *eventLoop(void *args)
     }
 
     free(local_buffer);
+    close(epoll_fd);
 }
 
 void runEpoll(int listenSocket, const short port, const int bufferLength)
 {
-    int status;
-    struct epoll_event event;
     event_loop_args *args = calloc(1, sizeof(event_loop_args));
 
     signal(SIGINT, epollSignalHandler);
@@ -110,23 +140,7 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
 
     setSocketToNonBlocking(args->server_fd);
 
-    args->epoll_fd = epoll_create1(0); // might need flags
-    if (args->epoll_fd == -1)
-    {
-        systemFatal("epoll_create1");
-    }
-
-    // Register the server socket for epoll events
-    event.data.fd = args->server_fd;
-    event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
-    status = epoll_ctl(args->epoll_fd, EPOLL_CTL_ADD, args->server_fd, &event);
-    if (status == -1)
-    {
-        systemFatal("epoll_ctl");
-    }
-
     args->bufLen = (size_t)bufferLength;
-    args->events = calloc(MAX_EVENTS, sizeof(struct epoll_event));
 
     if ((workers = calloc(get_nprocs(), sizeof(pthread_t))) == NULL)
     {
@@ -146,7 +160,8 @@ void runEpoll(int listenSocket, const short port, const int bufferLength)
         pthread_join(workers[i], NULL);
     }
 
-    free(args->events);
+    //eventLoop((void*) args);
+
     free(args);
 }
 
@@ -155,6 +170,6 @@ void epollSignalHandler(int sig)
     fprintf(stdout, "Stopping server\n");
     for (int i = 0; i < get_nprocs(); i++)
     {
-        pthread_cancel(workers[i]);
+       pthread_cancel(workers[i]);
     }
 }
