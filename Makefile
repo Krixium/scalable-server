@@ -4,7 +4,7 @@ DEBUG ?= 1
 ifeq ($(DEBUG), 1)
 	CFLAGS += -DDEBUG -ggdb
 else
-	CFLAGS += -DNDEBUG
+	CFLAGS += -DNDEBUG -O3
 endif
 
 CC=gcc
@@ -19,9 +19,6 @@ OBJ := $(SRC:.c=.o)
 
 $(NAME): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LINKS)
-
-debug: $(OBJ)
-	$(CC) $(CFLAGS) -ggdb -o $@ $^ $(LINKS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -o $@ -c $^
