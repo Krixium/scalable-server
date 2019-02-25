@@ -1,5 +1,12 @@
 # Scalable Server
 
+Scalable server build using epoll and select.
+
+## Build
+
+    make clean
+    make
+
 ## Usage
 
     Usage: ./server.out -m [select|epoll] -p [port] -b [buffer size]
