@@ -254,7 +254,7 @@ void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, ch
 
         if (FD_ISSET(sock, set))
         {
-            if (clearSocket(sock, buffer, argPtr->bufferLength) == -1)
+            if (clearSocket(sock, buffer, argPtr->bufferLength) <= 0)
             {
                 FD_CLR(sock, &argPtr->bundle.set);
                 argPtr->bundle.clients[i] = -1;
