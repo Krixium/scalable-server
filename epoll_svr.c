@@ -159,7 +159,7 @@ void *eventLoop(void *args)
             }
             else
             {
-                if (!clearSocket(current_event.data.fd, local_buffer, ev_args->bufLen))
+                if (clearSocket(current_event.data.fd, local_buffer, ev_args->bufLen) == -1)
                 {
                     close(current_event.data.fd);
                 }

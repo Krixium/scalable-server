@@ -309,10 +309,15 @@ int readAllFromSocket(const int sock, char *buffer, const int size)
 --------------------------------------------------------------------------------------------------*/
 int sendToSocket(const int sock, char *buffer, const int size)
 {
+    if (size <= 0)
+    {
+        return 0;
+    }
     int n = send(sock, buffer, size, 0);
-
-    logSnd(sock, n);
-
+    if (n > 0)
+    {
+        logSnd(sock, n);
+    }
     return n;
 }
 
@@ -332,22 +337,14 @@ int sendToSocket(const int sock, char *buffer, const int size)
 --                              char *buf: The buffer to place the data.
 --                              const int len: The length of the buffer.
 --
--- RETURNS:                 True if the socket was cleared without error, false otherwise.
+-- RETURNS:                 The number of bytes received, -1 if receiving failed.
 --
 -- NOTES:
 -- Reads all the data from the sock into buf and then sends buf to sock.
 --------------------------------------------------------------------------------------------------*/
-bool clearSocket(int sock, char *buf, const int len)
+int clearSocket(int sock, char *buf, const int len)
 {
-    if (readAllFromSocket(sock, buf, len) < 0)
-    {
-        return false;
-    }
-
-    if (!sendToSocket(sock, buf, len))
-    {
-        return false;
-    }
-
-    return true;
+    int n = readAllFromSocket(sock, buf, len);
+    sendToSocket(sock, buf, n);
+    return n;
 }

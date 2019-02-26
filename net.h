@@ -14,6 +14,6 @@ bool createBoundSocket(int *sock, const short port);
 bool acceptNewConnection(const int listenSocket, int *newSocket, struct sockaddr_in *client);
 int readAllFromSocket(const int sock, char *buffer, const int size);
 int sendToSocket(const int sock, char *buffer, const int size);
-bool clearSocket(int socket, char* buf, const int len);
+int clearSocket(int socket, char* buf, const int len);
 
 #endif // NET_H

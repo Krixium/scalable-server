@@ -1,6 +1,6 @@
 # If DEBUG = 1, then the program will build with debugging symbols.
 # If DEBUG = 0, then it will not.
-DEBUG ?= 1
+DEBUG ?= 0
 ifeq ($(DEBUG), 1)
 	CFLAGS += -DDEBUG -ggdb
 else
