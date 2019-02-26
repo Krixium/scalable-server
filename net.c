@@ -6,6 +6,7 @@
 -- FUNCTIONS:
 --                         bool setSocketToReuse(int sock)
 --                         bool setSocketToNonBlocking(int sock)
+--                         bool setSocketTimeout(const size_t sec, const size_t usec, const int sock)
 --                         bool createTCPSocket(int *sock)
 --                         bool createBoundSocket(int *sock, const short port)
 --                         bool acceptNewConnection(const int listenSocket, int *newSocket, struct sockaddr_in *client)
@@ -87,6 +88,45 @@ bool setSocketToNonBlocking(int sock)
     int flags = fcntl(sock, F_GETFL, 0);
 
     if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) == -1)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+/*--------------------------------------------------------------------------------------------------
+-- FUNCTION:                setSocketTimeout
+--
+-- DATE:                    February 11, 2019
+--
+-- REVISIONS:               N/A
+--
+-- DESIGNER:                Benny Wang
+--
+-- PROGRAMMER:              Benny Wang
+--
+-- INTERFACE:               int setSocketTimeout
+--                              const size_t sec: The amount of seconds to wait before timing out.
+--                              const size_t sec: The amount of nanosecond to wait before timing out.
+--
+-- RETURN:                  1 if the socket options were set, 0 otherwise.
+--
+-- NOTES:
+--                          Sets the receive timeout and send timeout of a socket.
+--------------------------------------------------------------------------------------------------*/
+bool setSocketTimeout(const size_t sec, const size_t usec, const int sock)
+{
+    struct timeval timeout;
+    timeout.tv_sec = sec;
+    timeout.tv_usec = usec;
+
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        return false;
+    }
+
+    if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0)
     {
         return false;
     }
@@ -237,7 +277,10 @@ int readAllFromSocket(const int sock, char *buffer, const int size)
         remaining -= n;
     }
 
-    logRcv(sock, size - remaining);
+    if (size - remaining > 0)
+    {
+        logRcv(sock, size - remaining);
+    }
 
     return size - remaining;
 }
@@ -292,22 +335,17 @@ int sendToSocket(const int sock, char *buffer, const int size)
 -- RETURNS:                 True if the socket was cleared without error, false otherwise.
 --
 -- NOTES:
--- Reads all the data from the socket into buf and then sends buf to socket. If no data was read or
--- if sending fails, the socket will be closed.
+-- Reads all the data from the sock into buf and then sends buf to sock.
 --------------------------------------------------------------------------------------------------*/
 bool clearSocket(int sock, char *buf, const int len)
 {
-    int nRead = readAllFromSocket(sock, buf, len);
-
-    if (nRead <= 0)
+    if (readAllFromSocket(sock, buf, len) < 0)
     {
-        close(sock);
         return false;
     }
 
     if (!sendToSocket(sock, buf, len))
     {
-        close(sock);
         return false;
     }
 

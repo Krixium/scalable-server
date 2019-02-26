@@ -8,6 +8,7 @@
 
 bool setSocketToReuse(int sock);
 bool setSocketToNonBlocking(int sock);
+bool setSocketTimeout(const size_t sec, const size_t usec, const int sock);
 bool createTCPSocket(int *sock);
 bool createBoundSocket(int *sock, const short port);
 bool acceptNewConnection(const int listenSocket, int *newSocket, struct sockaddr_in *client);

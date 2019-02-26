@@ -26,6 +26,7 @@
 
 #include "select_svr.h"
 
+#include <errno.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -189,6 +190,12 @@ void handleNewConnection(struct select_worker_arg *args)
     {
         if (argPtr->bundle.clients[i] < 0)
         {
+            if (!setSocketTimeout(10, 0, newSocket))
+            {
+                perror("setSocketTimeout");
+                close(newSocket);
+                return;
+            }
             argPtr->bundle.clients[i] = newSocket;
             break;
         }
@@ -249,6 +256,7 @@ void handleIncomingData(struct select_worker_arg *args, fd_set *set, int num, ch
         {
             if (!clearSocket(sock, buffer, argPtr->bufferLength))
             {
+                close(sock);
                 FD_CLR(sock, &argPtr->bundle.set);
                 argPtr->bundle.clients[i] = -1;
             }
