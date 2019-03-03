@@ -1,0 +1,14 @@
+{
+  "epoll-1000-10-client-logs":0.9861958356781048,
+  "epoll-1000-1000-client-logs":0.22109359423704922,
+  "epoll-10000-10-client-logs":12.39252779416681,
+  "epoll-10000-1000-client-logs":6.851559127708199,
+  "epoll-30000-10-client-logs":22.72340646849914,
+  "epoll-30000-1000-client-logs":33.12042358404586,
+  "select-1000-10-client-logs":2.695392653061219,
+  "select-1000-1000-client-logs":1.2517680857142623,
+  "select-10000-10-client-logs":70.85623254668863,
+  "select-10000-1000-client-logs":2.492933971553495,
+  "select-30000-10-client-logs":101.7432792201063,
+  "select-30000-1000-client-logs":2.9019730181502603
+}
