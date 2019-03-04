@@ -110,7 +110,6 @@ void *eventLoop(void *args)
         for (int i = 0; i < n_ready; ++i)
         {
             int client_fd;
-            socklen_t remote_len;
             current_event = events[i];
             // An error or hangup occurred
             // Client might have closed their side of the connection
@@ -124,20 +123,22 @@ void *eventLoop(void *args)
             // The server is receiving a connection request
             if (current_event.data.fd == ev_args->server_fd)
             {
-                client_fd = accept(ev_args->server_fd, (struct sockaddr*) &remote_addr, &remote_len);
-                if (client_fd == -1) {
-                    if (errno != EAGAIN)
-                    {
-                        perror("accept");
-                    }
+                if (!acceptNewConnection(ev_args->server_fd, &client_fd, &remote_addr))
+                {
+                    perror("acceptNewConnection");
                     break;
                 }
-                logAcc(client_fd);
 
-                status = fcntl(client_fd, F_SETFL, fcntl(client_fd, F_GETFL) | O_NONBLOCK);
-                if (status == -1)
+                if (!setSocketToNonBlocking(client_fd))
                 {
-                    perror("fcntl");
+                    perror("setSocketToNonBlocking");
+                    close(client_fd);
+                    continue;
+                }
+
+                if (!setSocketTimeout(10, 0, client_fd))
+                {
+                    perror("setSocketTimeout");
                     close(client_fd);
                     continue;
                 }
@@ -158,7 +159,7 @@ void *eventLoop(void *args)
             }
             else
             {
-                if (!clearSocket(current_event.data.fd, local_buffer, ev_args->bufLen))
+                if (clearSocket(current_event.data.fd, local_buffer, ev_args->bufLen) == -1)
                 {
                     close(current_event.data.fd);
                 }
@@ -195,7 +196,10 @@ void runEpoll(int listenSocket, const int bufferLength)
 
     args->server_fd = listenSocket;
 
-    setSocketToNonBlocking(args->server_fd);
+    if (!setSocketToNonBlocking(args->server_fd))
+    {
+        systemFatal("setSocketToNonBlocking");
+    }
 
     args->bufLen = (size_t)bufferLength;
 
